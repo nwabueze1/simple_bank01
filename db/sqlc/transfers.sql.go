@@ -9,13 +9,41 @@ import (
 	"context"
 )
 
+const createTransfer = `-- name: CreateTransfer :one
+INSERT INTO transfers (
+  from_account_id, to_account_id, amount
+) VALUES (
+  $1, $2, $3
+)
+RETURNING id, from_account_id, to_account_id, amount, created_at
+`
+
+type CreateTransferParams struct {
+	FromAccountID int64 `json:"from_account_id"`
+	ToAccountID   int64 `json:"to_account_id"`
+	Amount        int64 `json:"amount"`
+}
+
+func (q *Queries) CreateTransfer(ctx context.Context, arg CreateTransferParams) (Transfer, error) {
+	row := q.db.QueryRowContext(ctx, createTransfer, arg.FromAccountID, arg.ToAccountID, arg.Amount)
+	var i Transfer
+	err := row.Scan(
+		&i.ID,
+		&i.FromAccountID,
+		&i.ToAccountID,
+		&i.Amount,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getTransfer = `-- name: GetTransfer :one
 SELECT id, from_account_id, to_account_id, amount, created_at FROM transfers
 WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetTransfer(ctx context.Context, id int64) (Transfer, error) {
-	row := q.db.QueryRow(ctx, getTransfer, id)
+	row := q.db.QueryRowContext(ctx, getTransfer, id)
 	var i Transfer
 	err := row.Scan(
 		&i.ID,
@@ -40,7 +68,7 @@ type ListTransfersParams struct {
 }
 
 func (q *Queries) ListTransfers(ctx context.Context, arg ListTransfersParams) ([]Transfer, error) {
-	rows, err := q.db.Query(ctx, listTransfers, arg.Limit, arg.Offset)
+	rows, err := q.db.QueryContext(ctx, listTransfers, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -58,6 +86,9 @@ func (q *Queries) ListTransfers(ctx context.Context, arg ListTransfersParams) ([
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -81,7 +112,7 @@ type ListTransfersBetweenAccountParams struct {
 }
 
 func (q *Queries) ListTransfersBetweenAccount(ctx context.Context, arg ListTransfersBetweenAccountParams) ([]Transfer, error) {
-	rows, err := q.db.Query(ctx, listTransfersBetweenAccount,
+	rows, err := q.db.QueryContext(ctx, listTransfersBetweenAccount,
 		arg.ToAccountID,
 		arg.FromAccountID,
 		arg.Limit,
@@ -105,6 +136,9 @@ func (q *Queries) ListTransfersBetweenAccount(ctx context.Context, arg ListTrans
 		}
 		items = append(items, i)
 	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -126,7 +160,7 @@ type ListTransfersFromAccountParams struct {
 }
 
 func (q *Queries) ListTransfersFromAccount(ctx context.Context, arg ListTransfersFromAccountParams) ([]Transfer, error) {
-	rows, err := q.db.Query(ctx, listTransfersFromAccount, arg.FromAccountID, arg.Limit, arg.Offset)
+	rows, err := q.db.QueryContext(ctx, listTransfersFromAccount, arg.FromAccountID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -144,6 +178,9 @@ func (q *Queries) ListTransfersFromAccount(ctx context.Context, arg ListTransfer
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -166,7 +203,7 @@ type ListTransfersToAccountParams struct {
 }
 
 func (q *Queries) ListTransfersToAccount(ctx context.Context, arg ListTransfersToAccountParams) ([]Transfer, error) {
-	rows, err := q.db.Query(ctx, listTransfersToAccount, arg.ToAccountID, arg.Limit, arg.Offset)
+	rows, err := q.db.QueryContext(ctx, listTransfersToAccount, arg.ToAccountID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -184,6 +221,9 @@ func (q *Queries) ListTransfersToAccount(ctx context.Context, arg ListTransfersT
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
